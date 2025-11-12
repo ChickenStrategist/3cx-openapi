@@ -1,0 +1,700 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "3CX Configuration API (XAPI) - Starter OpenAPI",
+    "version": "v20-starter-1.0.0",
+    "description": "Starter OpenAPI specification for integrating with the 3CX Configuration API (XAPI) introduced in 3CX v20.\nThis file covers the client credentials token flow and a representative subset of configuration endpoints.\n**Note:** 3CX's XAPI is OData-based; many collections support `$filter`, `$select`, `$top`, etc.\nExtend this spec with additional entities (Queues, Trunks, System Extensions, Routing, etc.) as needed.\n",
+    "contact": {
+      "name": "3CX Documentation",
+      "url": "https://www.3cx.com/docs/configuration-rest-api/"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://{pbxFqdn}",
+      "description": "3CX PBX server",
+      "variables": {
+        "pbxFqdn": {
+          "default": "your-pbx.example.com",
+          "description": "Fully-qualified domain name of the PBX"
+        }
+      }
+    }
+  ],
+  "tags": [
+    {
+      "name": "Auth",
+      "description": "OAuth2 client credentials to obtain Bearer tokens"
+    },
+    {
+      "name": "Defs",
+      "description": "Utility endpoints for quick connectivity checks"
+    },
+    {
+      "name": "Departments",
+      "description": "Department/Group management"
+    },
+    {
+      "name": "Users",
+      "description": "User/Extension management"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "OAuth2ClientCreds": {
+        "type": "oauth2",
+        "description": "Client credentials flow using Service Principal `client_id` and `client_secret`",
+        "flows": {
+          "clientCredentials": {
+            "tokenUrl": "https://{pbxFqdn}/connect/token",
+            "scopes": {}
+          }
+        }
+      },
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  },
+  "paths": {
+    "/connect/token": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Get OAuth2 access token (client credentials)",
+        "description": "Exchanges Service Principal credentials (`client_id`, `client_secret`) for a Bearer token.\n**Headers:** `Content-Type: application/x-www-form-urlencoded`\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "client_id",
+                  "client_secret",
+                  "grant_type"
+                ],
+                "properties": {
+                  "client_id": {
+                    "type": "string",
+                    "description": "Service Principal ID configured in 3CX"
+                  },
+                  "client_secret": {
+                    "type": "string",
+                    "description": "API key shown once in 3CX Admin console when creating the Service Principal"
+                  },
+                  "grant_type": {
+                    "type": "string",
+                    "enum": [
+                      "client_credentials"
+                    ],
+                    "default": "client_credentials"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Access token response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "token_type": {
+                      "type": "string",
+                      "example": "Bearer"
+                    },
+                    "expires_in": {
+                      "type": "integer",
+                      "example": 3600
+                    },
+                    "access_token": {
+                      "type": "string"
+                    },
+                    "refresh_token": {
+                      "type": "string",
+                      "nullable": true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [],
+        "operationId": "auth_getToken"
+      }
+    },
+    "/xapi/v1/Defs": {
+      "get": {
+        "tags": [
+          "Defs"
+        ],
+        "summary": "Quick test - validates token and returns minimal data",
+        "description": "Use to verify connectivity and retrieve PBX version via headers.",
+        "parameters": [
+          {
+            "name": "$select",
+            "in": "query",
+            "required": false,
+            "description": "OData select clause (comma-separated property names)",
+            "schema": {
+              "type": "string"
+            },
+            "style": "form",
+            "explode": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "@odata.context": {
+                      "type": "string"
+                    },
+                    "value": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "operationId": "defs_list"
+      }
+    },
+    "/xapi/v1/Groups": {
+      "get": {
+        "tags": [
+          "Departments"
+        ],
+        "summary": "List departments (groups)",
+        "parameters": [
+          {
+            "name": "$filter",
+            "in": "query",
+            "required": false,
+            "description": "OData filter expression (e.g., `Name eq 'Sales'`)",
+            "schema": {
+              "type": "string"
+            },
+            "style": "form",
+            "explode": true
+          },
+          {
+            "name": "$select",
+            "in": "query",
+            "required": false,
+            "description": "OData select clause (comma-separated property names)",
+            "schema": {
+              "type": "string"
+            },
+            "style": "form",
+            "explode": true
+          },
+          {
+            "name": "$top",
+            "in": "query",
+            "required": false,
+            "description": "Maximum number of items to return",
+            "schema": {
+              "type": "integer"
+            },
+            "style": "form",
+            "explode": true
+          },
+          {
+            "name": "$skip",
+            "in": "query",
+            "required": false,
+            "description": "Number of items to skip (for paging)",
+            "schema": {
+              "type": "integer"
+            },
+            "style": "form",
+            "explode": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "@odata.context": {
+                      "type": "string"
+                    },
+                    "value": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "Name": {
+                            "type": "string"
+                          },
+                          "IsDefault": {
+                            "type": "boolean"
+                          },
+                          "HasMembers": {
+                            "type": "boolean"
+                          },
+                          "Number": {
+                            "type": "string"
+                          },
+                          "Id": {
+                            "type": "integer"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "operationId": "groups_list"
+      },
+      "post": {
+        "tags": [
+          "Departments"
+        ],
+        "summary": "Create department",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "Name",
+                  "Language"
+                ],
+                "properties": {
+                  "AllowCallService": {
+                    "type": "boolean"
+                  },
+                  "Id": {
+                    "type": "integer",
+                    "nullable": true
+                  },
+                  "Language": {
+                    "type": "string",
+                    "example": "EN"
+                  },
+                  "Name": {
+                    "type": "string"
+                  },
+                  "PromptSet": {
+                    "type": "string",
+                    "description": "PromptSet GUID"
+                  },
+                  "Props": {
+                    "type": "object",
+                    "additionalProperties": true
+                  },
+                  "TimeZoneId": {
+                    "type": "string"
+                  },
+                  "DisableCustomPrompt": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "headers": {
+              "Location": {
+                "description": "Resource URL of the created department",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "operationId": "groups_create"
+      }
+    },
+    "/xapi/v1/Groups({groupId})": {
+      "patch": {
+        "tags": [
+          "Departments"
+        ],
+        "summary": "Update department",
+        "parameters": [
+          {
+            "name": "groupId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "operationId": "group_update"
+      },
+      "delete": {
+        "tags": [
+          "Departments"
+        ],
+        "summary": "Delete department",
+        "parameters": [
+          {
+            "name": "groupId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "operationId": "group_delete"
+      }
+    },
+    "/xapi/v1/Users": {
+      "get": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "List users",
+        "parameters": [
+          {
+            "name": "$filter",
+            "in": "query",
+            "required": false,
+            "description": "OData filter expression (e.g., `Name eq 'Sales'`)",
+            "schema": {
+              "type": "string"
+            },
+            "style": "form",
+            "explode": true
+          },
+          {
+            "name": "$select",
+            "in": "query",
+            "required": false,
+            "description": "OData select clause (comma-separated property names)",
+            "schema": {
+              "type": "string"
+            },
+            "style": "form",
+            "explode": true
+          },
+          {
+            "name": "$top",
+            "in": "query",
+            "required": false,
+            "description": "Maximum number of items to return",
+            "schema": {
+              "type": "integer"
+            },
+            "style": "form",
+            "explode": true
+          },
+          {
+            "name": "$skip",
+            "in": "query",
+            "required": false,
+            "description": "Number of items to skip (for paging)",
+            "schema": {
+              "type": "integer"
+            },
+            "style": "form",
+            "explode": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "@odata.context": {
+                      "type": "string"
+                    },
+                    "value": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": true
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "operationId": "users_list"
+      },
+      "post": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Create user",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "Email",
+                  "FirstName",
+                  "LastName"
+                ],
+                "properties": {
+                  "Email": {
+                    "type": "string",
+                    "format": "email"
+                  },
+                  "FirstName": {
+                    "type": "string"
+                  },
+                  "LastName": {
+                    "type": "string"
+                  },
+                  "Number": {
+                    "type": "string",
+                    "description": "Desired extension number (range must be available via Dept props)"
+                  },
+                  "DepartmentId": {
+                    "type": "integer",
+                    "description": "ID of department to assign user to"
+                  },
+                  "Props": {
+                    "type": "object",
+                    "additionalProperties": true
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "operationId": "users_create"
+      }
+    },
+    "/xapi/v1/Users({userId})": {
+      "get": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Get user by ID",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "operationId": "user_get"
+      },
+      "patch": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Update user (partial)",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "operationId": "user_update"
+      },
+      "delete": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Delete user",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "operationId": "user_delete"
+      }
+    }
+  },
+  "security": [
+    {
+      "BearerAuth": []
+    }
+  ]
+}
